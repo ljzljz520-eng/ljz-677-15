@@ -2,9 +2,11 @@ package com.excel.dto;
 
 import com.alibaba.excel.annotation.ExcelProperty;
 import com.alibaba.excel.annotation.write.style.ColumnWidth;
+import com.excel.utils.VisitDateConverter;
 import lombok.Data;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 
 @Data
 public class ExcelDataDTO {
@@ -37,6 +39,18 @@ public class ExcelDataDTO {
     @ColumnWidth(25)
     private String remark;
 
+    @ExcelProperty(value = "医保编号", index = 7)
+    @ColumnWidth(25)
+    private String medicalInsuranceNo;
+
+    @ExcelProperty(value = "就诊日期", index = 8, converter = VisitDateConverter.class)
+    @ColumnWidth(14)
+    private LocalDate visitDate;
+
+    @ExcelProperty(value = "项目编码", index = 9)
+    @ColumnWidth(20)
+    private String itemCode;
+
     /**
      * 行号，用于错误定位
      */
@@ -46,4 +60,9 @@ public class ExcelDataDTO {
      * 错误信息
      */
     private String errorMsg;
+
+    /**
+     * 就诊日期原始文本（当日期无法解析时保留，用于错误提示）
+     */
+    private String visitDateRaw;
 }

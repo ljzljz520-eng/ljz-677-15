@@ -58,10 +58,11 @@ export const authApi = {
 }
 
 export const excelApi = {
-  import: (file, onProgress) => {
+  // 预检：解析+后端重复识别（文件内重复 + 历史已上送重复），结果落暂存表
+  precheck: (file, onProgress) => {
     const formData = new FormData()
     formData.append('file', file)
-    return request.post('/excel/import', formData, {
+    return request.post('/excel/precheck', formData, {
       headers: {
         'Content-Type': 'multipart/form-data'
       },
@@ -69,6 +70,18 @@ export const excelApi = {
       onUploadProgress: onProgress
     })
   },
+
+  // 分页获取预检清单（重复标记由后端给出）。category: invalid/file/history/clean
+  getStaging: (checkNo, params) =>
+    request.get(`/excel/staging/${checkNo}`, { params }),
+
+  // 确认导入：无重复自动导入，疑似重复需传勾选的暂存行ID
+  confirmImport: (checkNo, confirmedDuplicateIds = []) =>
+    request.post(`/excel/confirm/${checkNo}`, { confirmedDuplicateIds }),
+
+  // 取消预检并清理暂存数据
+  cancelPrecheck: (checkNo) =>
+    request.delete(`/excel/precheck/${checkNo}`),
 
   getRecords: (params) => request.get('/excel/records', { params }),
 

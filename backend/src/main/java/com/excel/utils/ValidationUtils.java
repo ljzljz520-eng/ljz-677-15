@@ -23,6 +23,22 @@ public class ValidationUtils {
             errors.add("姓名长度不能超过50个字符");
         }
 
+        if (StrUtil.isBlank(dto.getMedicalInsuranceNo())) {
+            errors.add("医保编号不能为空");
+        } else if (dto.getMedicalInsuranceNo().trim().length() > 60) {
+            errors.add("医保编号长度不能超过60个字符");
+        }
+
+        if (dto.getVisitDate() == null) {
+            errors.add("就诊日期不能为空或格式不正确（支持yyyy-MM-dd、yyyy/MM/dd、yyyyMMdd）");
+        }
+
+        if (StrUtil.isBlank(dto.getItemCode())) {
+            errors.add("项目编码不能为空");
+        } else if (dto.getItemCode().trim().length() > 60) {
+            errors.add("项目编码长度不能超过60个字符");
+        }
+
         if (StrUtil.isNotBlank(dto.getIdCard())) {
             if (!IdcardUtil.isValidCard(dto.getIdCard())) {
                 errors.add("身份证号格式不正确");
@@ -35,7 +51,9 @@ public class ValidationUtils {
             }
         }
 
-        if (dto.getAmount() != null && dto.getAmount().doubleValue() < 0) {
+        if (dto.getAmount() == null) {
+            errors.add("金额不能为空");
+        } else if (dto.getAmount().doubleValue() < 0) {
             errors.add("金额不能为负数");
         }
 

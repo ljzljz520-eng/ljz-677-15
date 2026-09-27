@@ -3,9 +3,12 @@ package com.excel.controller;
 import com.alibaba.excel.EasyExcel;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.excel.dto.ApiResponse;
+import com.excel.dto.ConfirmImportRequest;
 import com.excel.dto.ExcelDataDTO;
 import com.excel.dto.ImportResultDTO;
+import com.excel.dto.PreCheckResultDTO;
 import com.excel.dto.ReportResultDTO;
+import com.excel.dto.StagingRowDTO;
 import com.excel.entity.ExcelData;
 import com.excel.entity.ImportRecord;
 import com.excel.service.ExcelImportService;
@@ -24,13 +27,14 @@ import java.io.IOException;
 import java.math.BigDecimal;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 
 @RestController
 @RequestMapping("/api/excel")
 @RequiredArgsConstructor
-@Tag(name = "Excel导入管理", description = "Excel数据导入与上报接口")
+@Tag(name = "Excel导入管理", description = "Excel数据预检、重复识别、确认导入与上报接口")
 public class ExcelController {
 
     private static final Logger logger = LoggerFactory.getLogger(ExcelController.class);
@@ -38,27 +42,65 @@ public class ExcelController {
     private final ExcelImportService excelImportService;
     private final ReportService reportService;
 
-    @PostMapping("/import")
-    @Operation(summary = "导入Excel", description = "上传Excel文件进行数据导入")
-    public ApiResponse<ImportResultDTO> importExcel(
+    @PostMapping("/precheck")
+    @Operation(summary = "导入预检", description = "上传Excel进行校验与重复识别（文件内重复+历史已上送重复），数据暂存不落正式表")
+    public ApiResponse<PreCheckResultDTO> preCheck(
             @RequestParam("file") MultipartFile file,
             Authentication authentication) {
         try {
-            if (file.isEmpty()) {
-                return ApiResponse.error("请选择要上传的文件");
+            String validateError = validateExcelFile(file);
+            if (validateError != null) {
+                return ApiResponse.error(validateError);
             }
-
-            String fileName = file.getOriginalFilename();
-            if (fileName == null || (!fileName.endsWith(".xlsx") && !fileName.endsWith(".xls"))) {
-                return ApiResponse.error("仅支持Excel文件（.xlsx或.xls）");
-            }
-
             Long userId = (Long) authentication.getPrincipal();
-            ImportResultDTO result = excelImportService.importExcel(file, userId);
-            return ApiResponse.success("导入完成", result);
+            PreCheckResultDTO result = excelImportService.preCheck(file, userId);
+            return ApiResponse.success(result.getMessage(), result);
         } catch (Exception e) {
-            logger.error("Excel导入失败", e);
-            return ApiResponse.error("导入失败: " + e.getMessage());
+            logger.error("导入预检失败", e);
+            return ApiResponse.error("导入预检失败: " + e.getMessage());
+        }
+    }
+
+    @GetMapping("/staging/{checkNo}")
+    @Operation(summary = "获取预检清单", description = "分页获取预检数据及后端判定的重复标记。category: invalid/file/history/clean")
+    public ApiResponse<Page<StagingRowDTO>> getStaging(
+            @PathVariable String checkNo,
+            @RequestParam(required = false) String category,
+            @RequestParam(defaultValue = "1") Integer pageNum,
+            @RequestParam(defaultValue = "10") Integer pageSize) {
+        Page<StagingRowDTO> page = excelImportService.getStagingPage(
+                checkNo, category, pageNum, pageSize);
+        return ApiResponse.success(page);
+    }
+
+    @PostMapping("/confirm/{checkNo}")
+    @Operation(summary = "确认导入", description = "无重复数据自动导入；疑似重复数据须在confirmedDuplicateIds中确认后才导入")
+    public ApiResponse<ImportResultDTO> confirmImport(
+            @PathVariable String checkNo,
+            @RequestBody(required = false) ConfirmImportRequest request,
+            Authentication authentication) {
+        try {
+            Long userId = (Long) authentication.getPrincipal();
+            List<Long> ids = request == null ? null : request.getConfirmedDuplicateIds();
+            ImportResultDTO result = excelImportService.confirmImport(checkNo, ids, userId);
+            return ApiResponse.success(result.getMessage(), result);
+        } catch (IllegalStateException e) {
+            return ApiResponse.error(e.getMessage());
+        } catch (Exception e) {
+            logger.error("确认导入失败", e);
+            return ApiResponse.error("确认导入失败: " + e.getMessage());
+        }
+    }
+
+    @DeleteMapping("/precheck/{checkNo}")
+    @Operation(summary = "取消预检", description = "放弃本次导入并清理暂存数据")
+    public ApiResponse<Void> cancelPreCheck(@PathVariable String checkNo) {
+        try {
+            excelImportService.cancelCheck(checkNo);
+            return ApiResponse.success("已取消", null);
+        } catch (Exception e) {
+            logger.error("取消预检失败", e);
+            return ApiResponse.error("取消预检失败: " + e.getMessage());
         }
     }
 
@@ -75,9 +117,11 @@ public class ExcelController {
     @Operation(summary = "获取批次数据", description = "根据批次号分页获取数据")
     public ApiResponse<Page<ExcelData>> getDataByBatch(
             @PathVariable String batchNo,
+            @RequestParam(required = false) Integer reportStatus,
             @RequestParam(defaultValue = "1") Integer pageNum,
             @RequestParam(defaultValue = "10") Integer pageSize) {
-        Page<ExcelData> page = excelImportService.getDataByBatch(batchNo, pageNum, pageSize);
+        Page<ExcelData> page = excelImportService.getDataByBatch(
+                batchNo, pageNum, pageSize, reportStatus);
         return ApiResponse.success(page);
     }
 
@@ -120,24 +164,26 @@ public class ExcelController {
     public void downloadTemplate(HttpServletResponse response) throws IOException {
         response.setContentType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
         response.setCharacterEncoding("utf-8");
-        String fileName = URLEncoder.encode("数据导入模板", StandardCharsets.UTF_8)
+        String fileName = URLEncoder.encode("医保数据导入模板", StandardCharsets.UTF_8)
                 .replaceAll("\\+", "%20");
         response.setHeader("Content-disposition", "attachment;filename*=utf-8''" + fileName + ".xlsx");
 
-        // 生成模板数据
         List<ExcelDataDTO> templateData = new ArrayList<>();
         ExcelDataDTO example = new ExcelDataDTO();
         example.setDataCode("DATA001");
         example.setName("张三");
         example.setIdCard("110101199001011234");
         example.setPhone("13800138000");
-        example.setAmount(new BigDecimal("1000.00"));
+        example.setAmount(new BigDecimal("128.50"));
         example.setAddress("北京市朝阳区xxx街道");
         example.setRemark("示例数据");
+        example.setMedicalInsuranceNo("YB11010119900101001");
+        example.setVisitDate(LocalDate.of(2026, 9, 27));
+        example.setItemCode("XM0101");
         templateData.add(example);
 
         EasyExcel.write(response.getOutputStream(), ExcelDataDTO.class)
-                .sheet("数据导入模板")
+                .sheet("医保数据导入模板")
                 .doWrite(templateData);
     }
 
@@ -152,7 +198,6 @@ public class ExcelController {
                 .replaceAll("\\+", "%20");
         response.setHeader("Content-disposition", "attachment;filename*=utf-8''" + fileName + ".xlsx");
 
-        // 转换为DTO
         List<ExcelDataDTO> exportList = new ArrayList<>();
         for (ExcelData data : failedList) {
             ExcelDataDTO dto = new ExcelDataDTO();
@@ -163,6 +208,9 @@ public class ExcelController {
             dto.setAmount(data.getAmount());
             dto.setAddress(data.getAddress());
             dto.setRemark(data.getRemark());
+            dto.setMedicalInsuranceNo(data.getMedicalInsuranceNo());
+            dto.setVisitDate(data.getVisitDate());
+            dto.setItemCode(data.getItemCode());
             dto.setErrorMsg(data.getReportMessage());
             exportList.add(dto);
         }
@@ -170,5 +218,16 @@ public class ExcelController {
         EasyExcel.write(response.getOutputStream(), ExcelDataDTO.class)
                 .sheet("上报失败数据")
                 .doWrite(exportList);
+    }
+
+    private String validateExcelFile(MultipartFile file) {
+        if (file == null || file.isEmpty()) {
+            return "请选择要上传的文件";
+        }
+        String fileName = file.getOriginalFilename();
+        if (fileName == null || (!fileName.endsWith(".xlsx") && !fileName.endsWith(".xls"))) {
+            return "仅支持Excel文件（.xlsx或.xls）";
+        }
+        return null;
     }
 }

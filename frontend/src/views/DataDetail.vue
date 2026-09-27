@@ -78,7 +78,7 @@
     <div class="card">
       <div class="flex items-center justify-between mb-4">
         <h2 class="text-lg font-semibold text-gray-700">数据列表</h2>
-        <el-select v-model="statusFilter" placeholder="状态筛选" clearable style="width: 140px" @change="fetchData">
+        <el-select v-model="statusFilter" placeholder="状态筛选" clearable style="width: 140px" @change="handleFilterChange">
           <el-option label="全部" value="" />
           <el-option label="待上报" :value="0" />
           <el-option label="已上报" :value="1" />
@@ -87,24 +87,26 @@
       </div>
 
       <el-table v-loading="loading" :data="dataList" stripe style="width: 100%">
-        <el-table-column prop="dataCode" label="数据编号" width="140" />
-        <el-table-column prop="name" label="姓名" width="100" />
-        <el-table-column prop="idCard" label="身份证号" width="180">
-          <template #default="{ row }">
-            {{ maskIdCard(row.idCard) }}
-          </template>
-        </el-table-column>
-        <el-table-column prop="phone" label="手机号" width="130">
-          <template #default="{ row }">
-            {{ maskPhone(row.phone) }}
-          </template>
-        </el-table-column>
-        <el-table-column prop="amount" label="金额" width="120" align="right">
+        <el-table-column prop="dataCode" label="数据编号" width="130" show-overflow-tooltip />
+        <el-table-column prop="name" label="姓名" width="90" />
+        <el-table-column prop="medicalInsuranceNo" label="医保编号" width="160" show-overflow-tooltip />
+        <el-table-column prop="visitDate" label="就诊日期" width="110" />
+        <el-table-column prop="itemCode" label="项目编码" width="120" show-overflow-tooltip />
+        <el-table-column prop="amount" label="金额" width="110" align="right">
           <template #default="{ row }">
             <span class="font-medium">{{ formatAmount(row.amount) }}</span>
           </template>
         </el-table-column>
-        <el-table-column prop="address" label="地址" min-width="200" show-overflow-tooltip />
+        <el-table-column prop="idCard" label="身份证号" width="170">
+          <template #default="{ row }">
+            {{ maskIdCard(row.idCard) }}
+          </template>
+        </el-table-column>
+        <el-table-column prop="phone" label="手机号" width="125">
+          <template #default="{ row }">
+            {{ maskPhone(row.phone) }}
+          </template>
+        </el-table-column>
         <el-table-column prop="reportStatus" label="上报状态" width="100" align="center">
           <template #default="{ row }">
             <el-tag :type="getReportStatusType(row.reportStatus)" size="small">
@@ -112,7 +114,7 @@
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="reportMessage" label="上报信息" min-width="180" show-overflow-tooltip />
+        <el-table-column prop="reportMessage" label="上报信息" min-width="160" show-overflow-tooltip />
       </el-table>
 
       <!-- 分页 -->
@@ -238,9 +240,6 @@ const fetchData = async () => {
     const res = await excelApi.getDataByBatch(batchNo.value, params)
     dataList.value = res.data.records || []
     pagination.total = res.data.total || 0
-
-    // 计算统计数据
-    updateStats()
   } catch (error) {
     // 错误已在拦截器中处理
   } finally {
@@ -248,11 +247,27 @@ const fetchData = async () => {
   }
 }
 
-const updateStats = () => {
-  stats.total = pagination.total
-  stats.pending = dataList.value.filter(d => d.reportStatus === 0).length
-  stats.success = dataList.value.filter(d => d.reportStatus === 1).length
-  stats.failed = dataList.value.filter(d => d.reportStatus === 2).length
+// 分别统计各上报状态数量（独立于当前筛选/分页）
+const fetchStats = async () => {
+  try {
+    const [allRes, pendingRes, successRes, failedRes] = await Promise.all([
+      excelApi.getDataByBatch(batchNo.value, { pageNum: 1, pageSize: 1 }),
+      excelApi.getDataByBatch(batchNo.value, { pageNum: 1, pageSize: 1, reportStatus: 0 }),
+      excelApi.getDataByBatch(batchNo.value, { pageNum: 1, pageSize: 1, reportStatus: 1 }),
+      excelApi.getDataByBatch(batchNo.value, { pageNum: 1, pageSize: 1, reportStatus: 2 })
+    ])
+    stats.total = allRes.data.total || 0
+    stats.pending = pendingRes.data.total || 0
+    stats.success = successRes.data.total || 0
+    stats.failed = failedRes.data.total || 0
+  } catch (error) {
+    // 错误已在拦截器中处理
+  }
+}
+
+const handleFilterChange = () => {
+  pagination.pageNum = 1
+  fetchData()
 }
 
 const handleSizeChange = (size) => {
@@ -295,6 +310,7 @@ const reportData = async () => {
     }
 
     fetchData()
+    fetchStats()
   } catch (error) {
     if (error !== 'cancel') {
       // 错误已在拦截器中处理
@@ -306,5 +322,6 @@ const reportData = async () => {
 
 onMounted(() => {
   fetchData()
+  fetchStats()
 })
 </script>

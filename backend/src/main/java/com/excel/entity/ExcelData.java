@@ -3,6 +3,7 @@ package com.excel.entity;
 import com.baomidou.mybatisplus.annotation.*;
 import lombok.Data;
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 @Data
@@ -33,6 +34,21 @@ public class ExcelData {
     private String phone;
 
     /**
+     * 医保编号（参保人医保编号）
+     */
+    private String medicalInsuranceNo;
+
+    /**
+     * 就诊日期
+     */
+    private LocalDate visitDate;
+
+    /**
+     * 项目编码（诊疗/收费项目编码）
+     */
+    private String itemCode;
+
+    /**
      * 金额
      */
     private BigDecimal amount;
@@ -46,6 +62,11 @@ public class ExcelData {
      * 备注
      */
     private String remark;
+
+    /**
+     * 判重键：规范化的医保编号|就诊日期|项目编码|金额
+     */
+    private String dedupKey;
 
     /**
      * 上传批次号

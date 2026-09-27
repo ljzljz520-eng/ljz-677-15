@@ -30,6 +30,16 @@ public class ImportResultDTO {
     private Integer failCount;
 
     /**
+     * 校验失败被排除的数量
+     */
+    private Integer invalidCount;
+
+    /**
+     * 用户未确认、被跳过的疑似重复数量
+     */
+    private Integer skippedDuplicateCount;
+
+    /**
      * 错误数据列表
      */
     private List<ExcelDataDTO> errorList;
