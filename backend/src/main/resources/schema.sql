@@ -24,6 +24,10 @@ CREATE TABLE IF NOT EXISTS `excel_data` (
     `amount` DECIMAL(15,2) COMMENT '金额',
     `address` VARCHAR(200) COMMENT '地址',
     `remark` VARCHAR(500) COMMENT '备注',
+    `medical_insurance_no` VARCHAR(50) COMMENT '医保编号',
+    `visit_date` VARCHAR(20) COMMENT '就诊日期（yyyy-MM-dd）',
+    `item_code` VARCHAR(50) COMMENT '项目编码',
+    `duplicate_type` TINYINT DEFAULT 0 COMMENT '重复类型：0-正常 1-文件内疑似重复 2-历史批次已上送',
     `batch_no` VARCHAR(50) NOT NULL COMMENT '导入批次号',
     `report_status` TINYINT DEFAULT 0 COMMENT '上报状态：0-待上报 1-已上报 2-上报失败',
     `report_message` VARCHAR(500) COMMENT '上报结果信息',
@@ -34,7 +38,8 @@ CREATE TABLE IF NOT EXISTS `excel_data` (
     PRIMARY KEY (`id`),
     INDEX `idx_batch_no` (`batch_no`),
     INDEX `idx_report_status` (`report_status`),
-    INDEX `idx_data_code` (`data_code`)
+    INDEX `idx_data_code` (`data_code`),
+    INDEX `idx_duplicate_key` (`medical_insurance_no`, `visit_date`, `item_code`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Excel数据表';
 
 -- 导入记录表

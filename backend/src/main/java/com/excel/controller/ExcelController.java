@@ -3,8 +3,10 @@ package com.excel.controller;
 import com.alibaba.excel.EasyExcel;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.excel.dto.ApiResponse;
+import com.excel.dto.ConfirmImportRequest;
 import com.excel.dto.ExcelDataDTO;
 import com.excel.dto.ImportResultDTO;
+import com.excel.dto.PrecheckResultDTO;
 import com.excel.dto.ReportResultDTO;
 import com.excel.entity.ExcelData;
 import com.excel.entity.ImportRecord;
@@ -13,6 +15,7 @@ import com.excel.service.ReportService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletResponse;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -38,9 +41,9 @@ public class ExcelController {
     private final ExcelImportService excelImportService;
     private final ReportService reportService;
 
-    @PostMapping("/import")
-    @Operation(summary = "导入Excel", description = "上传Excel文件进行数据导入")
-    public ApiResponse<ImportResultDTO> importExcel(
+    @PostMapping("/precheck")
+    @Operation(summary = "导入预检", description = "上传Excel文件进行解析与重复检测（文件内疑似重复、历史批次已上送），用户确认后才正式导入")
+    public ApiResponse<PrecheckResultDTO> precheck(
             @RequestParam("file") MultipartFile file,
             Authentication authentication) {
         try {
@@ -54,10 +57,26 @@ public class ExcelController {
             }
 
             Long userId = (Long) authentication.getPrincipal();
-            ImportResultDTO result = excelImportService.importExcel(file, userId);
+            PrecheckResultDTO result = excelImportService.precheck(file, userId);
+            return ApiResponse.success("预检完成", result);
+        } catch (Exception e) {
+            logger.error("Excel预检失败", e);
+            return ApiResponse.error("预检失败: " + e.getMessage());
+        }
+    }
+
+    @PostMapping("/import/confirm")
+    @Operation(summary = "确认导入", description = "用户确认预检结果后正式导入数据，可选择是否导入疑似重复数据")
+    public ApiResponse<ImportResultDTO> confirmImport(
+            @Valid @RequestBody ConfirmImportRequest request,
+            Authentication authentication) {
+        try {
+            Long userId = (Long) authentication.getPrincipal();
+            ImportResultDTO result = excelImportService.confirmImport(
+                    request.getCheckNo(), request.getDuplicateStrategy(), userId);
             return ApiResponse.success("导入完成", result);
         } catch (Exception e) {
-            logger.error("Excel导入失败", e);
+            logger.error("确认导入失败", e);
             return ApiResponse.error("导入失败: " + e.getMessage());
         }
     }
@@ -134,6 +153,9 @@ public class ExcelController {
         example.setAmount(new BigDecimal("1000.00"));
         example.setAddress("北京市朝阳区xxx街道");
         example.setRemark("示例数据");
+        example.setMedicalInsuranceNo("MI123456789");
+        example.setVisitDate("2026-09-01");
+        example.setItemCode("ITEM001");
         templateData.add(example);
 
         EasyExcel.write(response.getOutputStream(), ExcelDataDTO.class)
@@ -163,6 +185,9 @@ public class ExcelController {
             dto.setAmount(data.getAmount());
             dto.setAddress(data.getAddress());
             dto.setRemark(data.getRemark());
+            dto.setMedicalInsuranceNo(data.getMedicalInsuranceNo());
+            dto.setVisitDate(data.getVisitDate());
+            dto.setItemCode(data.getItemCode());
             dto.setErrorMsg(data.getReportMessage());
             exportList.add(dto);
         }

@@ -30,6 +30,11 @@ public class ImportResultDTO {
     private Integer failCount;
 
     /**
+     * 本次被排除的疑似重复/历史已上送记录数
+     */
+    private Integer excludedDuplicateCount;
+
+    /**
      * 错误数据列表
      */
     private List<ExcelDataDTO> errorList;

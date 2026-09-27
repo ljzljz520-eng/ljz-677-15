@@ -58,10 +58,11 @@ export const authApi = {
 }
 
 export const excelApi = {
-  import: (file, onProgress) => {
+  // 导入预检：解析文件并检测重复（文件内疑似重复、历史批次已上送）
+  precheck: (file, onProgress) => {
     const formData = new FormData()
     formData.append('file', file)
-    return request.post('/excel/import', formData, {
+    return request.post('/excel/precheck', formData, {
       headers: {
         'Content-Type': 'multipart/form-data'
       },
@@ -69,6 +70,12 @@ export const excelApi = {
       onUploadProgress: onProgress
     })
   },
+
+  // 确认导入：用户确认预检结果后正式导入
+  // duplicateStrategy: EXCLUDE-排除疑似重复 INCLUDE-全部导入
+  confirmImport: (data) => request.post('/excel/import/confirm', data, {
+    timeout: 300000
+  }),
 
   getRecords: (params) => request.get('/excel/records', { params }),
 

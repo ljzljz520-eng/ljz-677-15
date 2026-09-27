@@ -43,6 +43,25 @@ public class ValidationUtils {
             errors.add("地址长度不能超过200个字符");
         }
 
+        // 医保编号、就诊日期、项目编码为重复判断的关键字段，必填
+        if (StrUtil.isBlank(dto.getMedicalInsuranceNo())) {
+            errors.add("医保编号不能为空");
+        } else if (dto.getMedicalInsuranceNo().trim().length() > 50) {
+            errors.add("医保编号长度不能超过50个字符");
+        }
+
+        if (StrUtil.isBlank(dto.getVisitDate())) {
+            errors.add("就诊日期不能为空");
+        } else if (DuplicateKeyUtils.normalizeVisitDate(dto.getVisitDate()) == null) {
+            errors.add("就诊日期格式不正确（支持yyyy-MM-dd、yyyy/MM/dd等格式）");
+        }
+
+        if (StrUtil.isBlank(dto.getItemCode())) {
+            errors.add("项目编码不能为空");
+        } else if (dto.getItemCode().trim().length() > 50) {
+            errors.add("项目编码长度不能超过50个字符");
+        }
+
         return errors.isEmpty() ? null : String.join("; ", errors);
     }
 }

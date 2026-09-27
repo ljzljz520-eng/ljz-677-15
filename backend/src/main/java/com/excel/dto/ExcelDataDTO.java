@@ -2,6 +2,7 @@ package com.excel.dto;
 
 import com.alibaba.excel.annotation.ExcelProperty;
 import com.alibaba.excel.annotation.write.style.ColumnWidth;
+import com.excel.converter.FlexibleDateConverter;
 import lombok.Data;
 
 import java.math.BigDecimal;
@@ -36,6 +37,18 @@ public class ExcelDataDTO {
     @ExcelProperty(value = "备注", index = 6)
     @ColumnWidth(25)
     private String remark;
+
+    @ExcelProperty(value = "医保编号", index = 7)
+    @ColumnWidth(18)
+    private String medicalInsuranceNo;
+
+    @ExcelProperty(value = "就诊日期", index = 8, converter = FlexibleDateConverter.class)
+    @ColumnWidth(14)
+    private String visitDate;
+
+    @ExcelProperty(value = "项目编码", index = 9)
+    @ColumnWidth(15)
+    private String itemCode;
 
     /**
      * 行号，用于错误定位

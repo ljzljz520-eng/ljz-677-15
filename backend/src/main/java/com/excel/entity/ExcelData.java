@@ -48,6 +48,26 @@ public class ExcelData {
     private String remark;
 
     /**
+     * 医保编号
+     */
+    private String medicalInsuranceNo;
+
+    /**
+     * 就诊日期（yyyy-MM-dd）
+     */
+    private String visitDate;
+
+    /**
+     * 项目编码
+     */
+    private String itemCode;
+
+    /**
+     * 重复类型：0-正常 1-文件内疑似重复 2-历史批次已上送
+     */
+    private Integer duplicateType;
+
+    /**
      * 上传批次号
      */
     private String batchNo;

@@ -87,24 +87,23 @@
       </div>
 
       <el-table v-loading="loading" :data="dataList" stripe style="width: 100%">
-        <el-table-column prop="dataCode" label="数据编号" width="140" />
-        <el-table-column prop="name" label="姓名" width="100" />
-        <el-table-column prop="idCard" label="身份证号" width="180">
-          <template #default="{ row }">
-            {{ maskIdCard(row.idCard) }}
-          </template>
-        </el-table-column>
-        <el-table-column prop="phone" label="手机号" width="130">
-          <template #default="{ row }">
-            {{ maskPhone(row.phone) }}
-          </template>
-        </el-table-column>
-        <el-table-column prop="amount" label="金额" width="120" align="right">
+        <el-table-column prop="dataCode" label="数据编号" width="120" />
+        <el-table-column prop="name" label="姓名" width="90" />
+        <el-table-column prop="medicalInsuranceNo" label="医保编号" width="130" show-overflow-tooltip />
+        <el-table-column prop="visitDate" label="就诊日期" width="105" />
+        <el-table-column prop="itemCode" label="项目编码" width="110" show-overflow-tooltip />
+        <el-table-column prop="amount" label="金额" width="110" align="right">
           <template #default="{ row }">
             <span class="font-medium">{{ formatAmount(row.amount) }}</span>
           </template>
         </el-table-column>
-        <el-table-column prop="address" label="地址" min-width="200" show-overflow-tooltip />
+        <el-table-column prop="duplicateType" label="重复标记" width="110" align="center">
+          <template #default="{ row }">
+            <el-tag v-if="row.duplicateType === 1" type="warning" size="small">文件内重复</el-tag>
+            <el-tag v-else-if="row.duplicateType === 2" type="danger" size="small">历史已上送</el-tag>
+            <span v-else class="text-gray-400">-</span>
+          </template>
+        </el-table-column>
         <el-table-column prop="reportStatus" label="上报状态" width="100" align="center">
           <template #default="{ row }">
             <el-tag :type="getReportStatusType(row.reportStatus)" size="small">
@@ -112,7 +111,7 @@
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="reportMessage" label="上报信息" min-width="180" show-overflow-tooltip />
+        <el-table-column prop="reportMessage" label="上报信息" min-width="160" show-overflow-tooltip />
       </el-table>
 
       <!-- 分页 -->
@@ -207,16 +206,6 @@ const getReportStatusType = (status) => {
 const getReportStatusText = (status) => {
   const texts = { 0: '待上报', 1: '已上报', 2: '上报失败' }
   return texts[status] || '未知'
-}
-
-const maskIdCard = (idCard) => {
-  if (!idCard) return '-'
-  return idCard.replace(/^(.{6})(.*)(.{4})$/, '$1********$3')
-}
-
-const maskPhone = (phone) => {
-  if (!phone) return '-'
-  return phone.replace(/^(.{3})(.*)(.{4})$/, '$1****$3')
 }
 
 const formatAmount = (amount) => {
